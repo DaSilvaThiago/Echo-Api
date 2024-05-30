@@ -33,16 +33,33 @@ app.get('/products', async (req, res) => {
 });
 
 app.get('/login', async (req, res) => {
-  const { email, senha } = req.query;
-  try {
-    const [rows] = await pool.query(`
-      SELECT * FROM USUARIO WHERE USUARIO_EMAIL = ? AND USUARIO_SENHA = ?
-    `, [email, senha]);
-    res.json(rows);
-  } catch (err) {
-    res.status(500).send('Database error: ' + err.message);
-  }
-});
+    const { usuario, senha } = req.query;
+  
+    // Log the received parameters
+    console.log(`Received parameters: usuario=${usuario}, senha=${senha}`);
+  
+    try {
+      const [rows] = await pool.query(`
+        SELECT * FROM USUARIO WHERE USUARIO_EMAIL = ? AND USUARIO_SENHA = ?
+      `, [usuario, senha]);
+  
+      // Check if a user was found
+      if (rows.length === 0) {
+        console.log('No user found with the provided usuario and senha');
+        return res.status(404).send('No user found');
+      }
+  
+      // Log the found user
+      console.log(`Found user: ${JSON.stringify(rows[0])}`);
+  
+      res.json(rows);
+    } catch (err) {
+      // Log the error
+      console.error('Database error: ' + err.message);
+  
+      res.status(500).send('Database error: ' + err.message);
+    }
+  });
 
 app.get('/cart', async (req, res) => {
   const { userId } = req.query;
