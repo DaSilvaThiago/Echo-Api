@@ -6,6 +6,7 @@ dotenv.config();
 
 const app = express();
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // Add this line to handle form-encoded data
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
@@ -75,7 +76,7 @@ app.get('/cart', async (req, res) => {
 });
 
 app.post('/cart', async (req, res) => {
-  const { USUARIO_ID, PRODUTO_ID, ITEM_QTD } = req.body;
+  const { USUARIO_ID, PRODUTO_ID, ITEM_QTD } = req.body; // Handles form-encoded data as well as JSON data
   if (USUARIO_ID == null || PRODUTO_ID == null || ITEM_QTD == null) {
     return res.status(400).send('USUARIO_ID, PRODUTO_ID, and ITEM_QTD must not be null');
   }
@@ -89,7 +90,6 @@ app.post('/cart', async (req, res) => {
     console.error('Database error:', err.message);
     res.status(500).send('Database error: ' + err.message);
   }
-
 });
 
 app.delete('/cart', async (req, res) => {
