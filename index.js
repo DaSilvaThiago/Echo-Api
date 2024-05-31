@@ -75,13 +75,18 @@ app.get('/cart', async (req, res) => {
 });
 
 app.post('/cart', async (req, res) => {
-  const { userId, productId, quantity } = req.body;
+  const { userId, produtoId, quantidade } = req.body;
+
+  if (userId == null || produtoId == null || quantidade == null) {
+    return res.status(400).send('userId, produtoId, and quantidade must not be null');
+  }
+
   try {
     const [rows] = await pool.query(`
       INSERT INTO CARRINHO_ITEM (USUARIO_ID, PRODUTO_ID, ITEM_QTD)
       VALUES (?, ?, ?)
       ON DUPLICATE KEY UPDATE ITEM_QTD = ITEM_QTD + VALUES(ITEM_QTD)
-    `, [userId, productId, quantity]);
+    `, [userId, produtoId, quantidade]);
     res.send('Item added/updated in cart.');
   } catch (err) {
     console.error('Database error:', err.message);
