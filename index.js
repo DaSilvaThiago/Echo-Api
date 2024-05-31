@@ -28,12 +28,14 @@ app.get('/products', async (req, res) => {
     `);
     res.json(rows);
   } catch (err) {
+    console.error('Database error:', err.message);
     res.status(500).send('Database error: ' + err.message);
   }
 });
 
 app.get('/login', async (req, res) => {
-  const { usuario, senha } = req.body;
+  const { usuario, senha } = req.query;
+  console.log('Login attempt with:', { usuario, senha });
   try {
     const [rows] = await pool.query(`
       SELECT * FROM USUARIO WHERE USUARIO_EMAIL = ? AND USUARIO_SENHA = ?
@@ -44,11 +46,11 @@ app.get('/login', async (req, res) => {
       res.json(rows[0]);
     }
   } catch (err) {
+    console.error('Database error:', err.message);
     res.status(500).send('Database error: ' + err.message);
   }
 });
 
-    
 app.get('/cart', async (req, res) => {
   const { userId } = req.query;
   try {
@@ -58,15 +60,16 @@ app.get('/cart', async (req, res) => {
       JOIN PRODUTO P ON CI.PRODUTO_ID = P.PRODUTO_ID
       JOIN PRODUTO_IMAGEM PI ON P.PRODUTO_ID = PI.PRODUTO_ID
       JOIN (
-          SELECT PRODUTO_ID, MIN(IMAGEM_ORDEM) AS MIN_IMAGEM_ORDEM
-          FROM PRODUTO_IMAGEM
-          GROUP BY PRODUTO_ID
+        SELECT PRODUTO_ID, MIN(IMAGEM_ORDEM) AS MIN_IMAGEM_ORDEM
+        FROM PRODUTO_IMAGEM
+        GROUP BY PRODUTO_ID
       ) AS PI2 ON PI.PRODUTO_ID = PI2.PRODUTO_ID AND PI.IMAGEM_ORDEM = PI2.MIN_IMAGEM_ORDEM
       WHERE CI.USUARIO_ID = ?
       GROUP BY CI.PRODUTO_ID, CI.ITEM_QTD, P.PRODUTO_NOME, P.PRODUTO_PRECO, PI.IMAGEM_URL
     `, [userId]);
     res.json(rows);
   } catch (err) {
+    console.error('Database error:', err.message);
     res.status(500).send('Database error: ' + err.message);
   }
 });
@@ -81,6 +84,7 @@ app.post('/cart', async (req, res) => {
     `, [userId, productId, quantity]);
     res.send('Item added/updated in cart.');
   } catch (err) {
+    console.error('Database error:', err.message);
     res.status(500).send('Database error: ' + err.message);
   }
 });
@@ -93,6 +97,7 @@ app.delete('/cart', async (req, res) => {
     `, [userId, productId]);
     res.send('Item removed from cart.');
   } catch (err) {
+    console.error('Database error:', err.message);
     res.status(500).send('Database error: ' + err.message);
   }
 });
