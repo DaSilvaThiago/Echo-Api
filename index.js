@@ -33,20 +33,21 @@ app.get('/products', async (req, res) => {
 });
 
 app.get('/login', async (req, res) => {
-    const { usuario, senha } = req.body;
-    try {
-        const [rows] = await pool.query(`
-        SELECT * FROM USUARIO WHERE USUARIO_EMAIL = ? AND USUARIO_SENHA = ?
-        `, [usuario, senha]);
-        if (rows.length === 0) {
-        res.status(401).send('Invalid email or password');
-        } else {
-        res.json(rows[0]);
-        }
-    } catch (err) {
-        res.status(500).send('Database error: ' + err.message);
+  const { usuario, senha } = req.body;
+  try {
+    const [rows] = await pool.query(`
+      SELECT * FROM USUARIO WHERE USUARIO_EMAIL = ? AND USUARIO_SENHA = ?
+    `, [usuario, senha]);
+    if (rows.length === 0) {
+      res.status(401).send('Invalid email or password');
+    } else {
+      res.json(rows[0]);
     }
-    });
+  } catch (err) {
+    res.status(500).send('Database error: ' + err.message);
+  }
+});
+
     
 app.get('/cart', async (req, res) => {
   const { userId } = req.query;
