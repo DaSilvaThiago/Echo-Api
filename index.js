@@ -33,11 +33,11 @@ app.get('/products', async (req, res) => {
 });
 
 app.get('/login', async (req, res) => {
-    const { login, senha } = req.body;
+    const { usuario, senha } = req.body;
     try {
         const [rows] = await pool.query(`
         SELECT * FROM USUARIO WHERE USUARIO_EMAIL = ? AND USUARIO_SENHA = ?
-        `, [login, senha]);
+        `, [usuario, senha]);
         if (rows.length === 0) {
         res.status(401).send('Invalid email or password');
         } else {
