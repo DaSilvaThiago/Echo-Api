@@ -52,29 +52,6 @@ app.get('/login', async (req, res) => {
   }
 });
 
-app.get('/cart', async (req, res) => {
-  const { userId } = req.query;
-  try {
-    const [rows] = await pool.query(`
-      SELECT CI.PRODUTO_ID, CI.ITEM_QTD AS QUANTIDADE_DISPONIVEL, P.PRODUTO_NOME, P.PRODUTO_PRECO, PI.IMAGEM_URL
-      FROM CARRINHO_ITEM CI
-      JOIN PRODUTO P ON CI.PRODUTO_ID = P.PRODUTO_ID
-      JOIN PRODUTO_IMAGEM PI ON P.PRODUTO_ID = PI.PRODUTO_ID
-      JOIN (
-        SELECT PRODUTO_ID, MIN(IMAGEM_ORDEM) AS MIN_IMAGEM_ORDEM
-        FROM PRODUTO_IMAGEM
-        GROUP BY PRODUTO_ID
-      ) AS PI2 ON PI.PRODUTO_ID = PI2.PRODUTO_ID AND PI.IMAGEM_ORDEM = PI2.MIN_IMAGEM_ORDEM
-      WHERE CI.USUARIO_ID = ?
-      GROUP BY CI.PRODUTO_ID, CI.ITEM_QTD, P.PRODUTO_NOME, P.PRODUTO_PRECO, PI.IMAGEM_URL
-    `, [userId]);
-    res.json(rows);
-  } catch (err) {
-    console.error('Database error:', err.message);
-    res.status(500).send('Database error: ' + err.message);
-  }
-});
-
 app.post('/cart', async (req, res) => {
   const { USUARIO_ID, PRODUTO_ID, ITEM_QTD } = req.body; // Handles form-encoded data as well as JSON data
   if (USUARIO_ID == null || PRODUTO_ID == null || ITEM_QTD == null) {
@@ -86,6 +63,42 @@ app.post('/cart', async (req, res) => {
       VALUES (?, ?, ?)
     `, [USUARIO_ID, PRODUTO_ID, ITEM_QTD]);
     res.send('Item added to cart.');
+  } catch (err) {
+    console.error('Database error:', err.message);
+    res.status(500).send('Database error: ' + err.message);
+  }
+});
+
+app.get('/cart', async (req, res) => {
+  const userId = req.query.userId;
+  try {
+    const [rows] = await pool.query(`
+      SELECT
+        CI.PRODUTO_ID,
+        CI.ITEM_QTD AS QUANTIDADE_DISPONIVEL,
+        P.PRODUTO_NOME,
+        P.PRODUTO_PRECO,
+        PI.IMAGEM_URL
+      FROM
+        CARRINHO_ITEM CI
+      JOIN
+        PRODUTO P ON CI.PRODUTO_ID = P.PRODUTO_ID
+      JOIN
+        PRODUTO_IMAGEM PI ON P.PRODUTO_ID = PI.PRODUTO_ID
+      JOIN
+        (SELECT
+          PRODUTO_ID,
+          MIN(IMAGEM_ORDEM) AS MIN_IMAGEM_ORDEM
+        FROM
+          PRODUTO_IMAGEM
+        GROUP BY
+          PRODUTO_ID) AS PI2 ON PI.PRODUTO_ID = PI2.PRODUTO_ID AND PI.IMAGEM_ORDEM = PI2.MIN_IMAGEM_ORDEM
+      WHERE
+        CI.USUARIO_ID = ?
+      GROUP BY
+        CI.PRODUTO_ID, CI.ITEM_QTD, P.PRODUTO_NOME, P.PRODUTO_PRECO, PI.IMAGEM_URL
+    `, [userId]);
+    res.json(rows);
   } catch (err) {
     console.error('Database error:', err.message);
     res.status(500).send('Database error: ' + err.message);
@@ -104,6 +117,7 @@ app.delete('/cart', async (req, res) => {
     res.status(500).send('Database error: ' + err.message);
   }
 });
+
 
 app.listen(3000, () => {
   console.log('Server running on port 3000');
