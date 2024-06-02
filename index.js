@@ -141,7 +141,62 @@ app.get('/getUserAddresses', async (req, res) => {
   }
 });
 
+app.post('/createOrder', async (req, res) => {
+  const { userId, total, products, addressId } = req.body;
 
+  try {
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // Inserir pedido
+    const [pedidoResult] = await connection.query(`
+      INSERT INTO PEDIDO (USUARIO_ID, STATUS_ID, PEDIDO_DATA, ENDERECO_ID) 
+      VALUES (?, ?, ?, ?)
+    `, [userId, 1, new Date(), addressId]);
+    
+    const pedidoId = pedidoResult.insertId;
+
+    // Inserir itens do pedido e atualizar estoque
+    for (const produto of products) {
+      const { produtoId, quantidadeDisponivel, produtoPreco } = produto;
+      
+      // Verificar estoque
+      const [estoqueRows] = await connection.query(`
+        SELECT PRODUTO_QTD FROM PRODUTO_ESTOQUE WHERE PRODUTO_ID = ?
+      `, [produtoId]);
+      
+      if (estoqueRows[0].PRODUTO_QTD < quantidadeDisponivel) {
+        throw new Error(`Quantidade insuficiente no estoque para o produto ID: ${produtoId}`);
+      }
+
+      // Inserir item do pedido
+      await connection.query(`
+        INSERT INTO PEDIDO_ITEM (PRODUTO_ID, PEDIDO_ID, ITEM_QTD, ITEM_PRECO)
+        VALUES (?, ?, ?, ?)
+      `, [produtoId, pedidoId, quantidadeDisponivel, produtoPreco]);
+
+      // Atualizar estoque
+      await connection.query(`
+        UPDATE PRODUTO_ESTOQUE SET PRODUTO_QTD = PRODUTO_QTD - ?
+        WHERE PRODUTO_ID = ?
+      `, [quantidadeDisponivel, produtoId]);
+
+      // Limpar carrinho
+      await connection.query(`
+        UPDATE CARRINHO_ITEM SET ITEM_QTD = 0
+        WHERE PRODUTO_ID = ? AND USUARIO_ID = ?
+      `, [produtoId, userId]);
+    }
+
+    await connection.commit();
+    connection.release();
+
+    res.json({ status: 'success', code: 200, message: 'Pedido criado com sucesso', pedidoId });
+  } catch (err) {
+    console.error('Database error:', err.message);
+    res.status(500).send('Database error: ' + err.message);
+  }
+});
 
 app.listen(3000, () => {
   console.log('Server running on port 3000');
