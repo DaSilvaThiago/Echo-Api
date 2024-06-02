@@ -106,11 +106,21 @@ app.get('/cart', async (req, res) => {
 });
 
 app.delete('/cart', async (req, res) => {
-  const { userId, productId } = req.body;
+  const { userId, productId } = req.query; // Change from req.body to req.query
+
+  console.log(`Received DELETE request with userId: ${userId} and productId: ${productId}`);
+
   try {
     const [rows] = await pool.query(`
       DELETE FROM CARRINHO_ITEM WHERE USUARIO_ID = ? AND PRODUTO_ID = ?
     `, [userId, productId]);
+
+    if (rows.affectedRows === 0) {
+      console.log(`No item found with userId: ${userId} and productId: ${productId}`);
+      return res.status(404).send('Item not found');
+    }
+
+    console.log(`Item with userId: ${userId} and productId: ${productId} removed successfully`);
     res.send('Item removed from cart.');
   } catch (err) {
     console.error('Database error:', err.message);
