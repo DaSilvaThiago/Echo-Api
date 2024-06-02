@@ -105,14 +105,14 @@ app.get('/cart', async (req, res) => {
   }
 });
 
-app.delete('/cart', async (req, res) => {
-  const { userId, productId } = req.query; // Change from req.body to req.query
-
-  console.log(`Received DELETE request with userId: ${userId} and productId: ${productId}`);
+app.put('/cart', async (req, res) => {
+  const { userId, productId } = req.body;
+  
+  console.log(`Received PUT request with userId: ${userId} and productId: ${productId}`);
 
   try {
     const [rows] = await pool.query(`
-      DELETE FROM CARRINHO_ITEM WHERE USUARIO_ID = ? AND PRODUTO_ID = ?
+      UPDATE CARRINHO_ITEM SET QUANTIDADE_DISPONIVEL = 0 WHERE USUARIO_ID = ? AND PRODUTO_ID = ?
     `, [userId, productId]);
 
     if (rows.affectedRows === 0) {
@@ -120,8 +120,8 @@ app.delete('/cart', async (req, res) => {
       return res.status(404).send('Item not found');
     }
 
-    console.log(`Item with userId: ${userId} and productId: ${productId} removed successfully`);
-    res.send('Item removed from cart.');
+    console.log(`Item with userId: ${userId} and productId: ${productId} updated successfully`);
+    res.send('Item quantity updated to 0.');
   } catch (err) {
     console.error('Database error:', err.message);
     res.status(500).send('Database error: ' + err.message);
