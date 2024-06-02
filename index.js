@@ -128,6 +128,19 @@ app.put('/cart', async (req, res) => {
   }
 });
 
+app.get('/getUserAddresses', async (req, res) => {
+  const userId = req.query.userId;
+  try {
+    const [rows] = await pool.query(`
+      SELECT * FROM ENDERECO WHERE USUARIO_ID = ? AND ENDERECO_APAGADO = 0
+    `, [userId]);
+    res.json(rows);
+  } catch (err) {
+    console.error('Database error:', err.message);
+    res.status(500).send('Database error: ' + err.message);
+  }
+});
+
 
 
 app.listen(3000, () => {
