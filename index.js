@@ -112,7 +112,7 @@ app.put('/cart', async (req, res) => {
 
   try {
     const [rows] = await pool.query(`
-      UPDATE CARRINHO_ITEM SET QUANTIDADE_DISPONIVEL = 0 WHERE USUARIO_ID = ? AND PRODUTO_ID = ?
+      UPDATE CARRINHO_ITEM SET ITEM_QTD = 0 WHERE USUARIO_ID = ? AND PRODUTO_ID = ?
     `, [userId, productId]);
 
     if (rows.affectedRows === 0) {
@@ -127,6 +127,7 @@ app.put('/cart', async (req, res) => {
     res.status(500).send('Database error: ' + err.message);
   }
 });
+
 
 
 app.listen(3000, () => {
