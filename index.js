@@ -144,7 +144,8 @@ app.get('/getUserAddresses', async (req, res) => {
 app.post('/createOrder', async (req, res) => {
   const { userId, total, products, addressId } = req.body;
 
-  console.log(`Received POST request to create order with userId: ${userId}, total: ${total}, products: ${products}, addressId: ${addressId}`);
+  console.log(`Received POST request to create order with userId: ${userId}, total: ${total}, products: ${JSON.stringify(products)}, addressId: ${addressId}`);
+
   try {
     const connection = await pool.getConnection();
     await connection.beginTransaction();
@@ -154,38 +155,41 @@ app.post('/createOrder', async (req, res) => {
       INSERT INTO PEDIDO (USUARIO_ID, STATUS_ID, PEDIDO_DATA, ENDERECO_ID) 
       VALUES (?, ?, ?, ?)
     `, [userId, 1, new Date(), addressId]);
-    
+
     const pedidoId = pedidoResult.insertId;
 
     // Inserir itens do pedido e atualizar estoque
     for (const produto of products) {
-      const { produtoId, quantidadeDisponivel, quantidadeComprada, produtoPreco } = produto;
-      
+      const { produtoId, quantidade } = produto;
+
       // Verificar estoque
       const [estoqueRows] = await connection.query(`
         SELECT PRODUTO_QTD FROM PRODUTO_ESTOQUE WHERE PRODUTO_ID = ?
       `, [produtoId]);
-      
-      if (estoqueRows[0].PRODUTO_QTD < quantidadeComprada) {
+
+      if (estoqueRows.length === 0) {
+        throw new Error(`Produto ID: ${produtoId} não encontrado no estoque`);
+      }
+
+      if (estoqueRows[0].PRODUTO_QTD < quantidade) {
         throw new Error(`Quantidade insuficiente no estoque para o produto ID: ${produtoId}`);
       }
-    
+
       // Inserir item do pedido
       await connection.query(`
         INSERT INTO PEDIDO_ITEM (PRODUTO_ID, PEDIDO_ID, ITEM_QTD, ITEM_PRECO)
-        VALUES (?, ?, ?, ?)
-      `, [produtoId, pedidoId, quantidadeComprada, produtoPreco]);
-    
+        VALUES (?, ?, ?, (SELECT PRODUTO_PRECO FROM PRODUTO WHERE PRODUTO_ID = ?))
+      `, [produtoId, pedidoId, quantidade, produtoId]);
+
       // Atualizar estoque
       await connection.query(`
         UPDATE PRODUTO_ESTOQUE SET PRODUTO_QTD = PRODUTO_QTD - ?
         WHERE PRODUTO_ID = ?
-      `, [quantidadeComprada, produtoId]);
-    
+      `, [quantidade, produtoId]);
+
       // Limpar carrinho
       await connection.query(`
-        UPDATE CARRINHO_ITEM SET ITEM_QTD = 0
-        WHERE PRODUTO_ID = ? AND USUARIO_ID = ?
+        DELETE FROM CARRINHO_ITEM WHERE PRODUTO_ID = ? AND USUARIO_ID = ?
       `, [produtoId, userId]);
     }
 
@@ -198,6 +202,7 @@ app.post('/createOrder', async (req, res) => {
     res.status(500).send('Database error: ' + err.message);
   }
 });
+
 
 app.listen(3000, () => {
   console.log('Server running on port 3000');
