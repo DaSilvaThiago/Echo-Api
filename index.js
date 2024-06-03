@@ -144,6 +144,7 @@ app.get('/getUserAddresses', async (req, res) => {
 app.post('/createOrder', async (req, res) => {
   const { userId, total, products, addressId } = req.body;
 
+  console.log(`Received POST request to create order with userId: ${userId}, total: ${total}, products: ${products}, addressId: ${addressId}`);
   try {
     const connection = await pool.getConnection();
     await connection.beginTransaction();
@@ -158,29 +159,29 @@ app.post('/createOrder', async (req, res) => {
 
     // Inserir itens do pedido e atualizar estoque
     for (const produto of products) {
-      const { produtoId, quantidadeDisponivel, produtoPreco } = produto;
+      const { produtoId, quantidadeDisponivel, quantidadeComprada, produtoPreco } = produto;
       
       // Verificar estoque
       const [estoqueRows] = await connection.query(`
         SELECT PRODUTO_QTD FROM PRODUTO_ESTOQUE WHERE PRODUTO_ID = ?
       `, [produtoId]);
       
-      if (estoqueRows[0].PRODUTO_QTD < quantidadeDisponivel) {
+      if (estoqueRows[0].PRODUTO_QTD < quantidadeComprada) {
         throw new Error(`Quantidade insuficiente no estoque para o produto ID: ${produtoId}`);
       }
-
+    
       // Inserir item do pedido
       await connection.query(`
         INSERT INTO PEDIDO_ITEM (PRODUTO_ID, PEDIDO_ID, ITEM_QTD, ITEM_PRECO)
         VALUES (?, ?, ?, ?)
-      `, [produtoId, pedidoId, quantidadeDisponivel, produtoPreco]);
-
+      `, [produtoId, pedidoId, quantidadeComprada, produtoPreco]);
+    
       // Atualizar estoque
       await connection.query(`
         UPDATE PRODUTO_ESTOQUE SET PRODUTO_QTD = PRODUTO_QTD - ?
         WHERE PRODUTO_ID = ?
-      `, [quantidadeDisponivel, produtoId]);
-
+      `, [quantidadeComprada, produtoId]);
+    
       // Limpar carrinho
       await connection.query(`
         UPDATE CARRINHO_ITEM SET ITEM_QTD = 0
