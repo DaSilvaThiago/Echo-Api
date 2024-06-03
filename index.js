@@ -75,11 +75,10 @@ app.get('/cart', async (req, res) => {
     const [rows] = await pool.query(`
       SELECT
         CI.PRODUTO_ID,
-        CI.ITEM_QTD AS QUANTIDADE_COMPRADA,
+        CI.ITEM_QTD AS QUANTIDADE_DISPONIVEL,
         P.PRODUTO_NOME,
         P.PRODUTO_PRECO,
-        PI.IMAGEM_URL,
-        PE.PRODUTO_QTD AS QUANTIDADE_DISPONIVEL
+        PI.IMAGEM_URL
       FROM
         CARRINHO_ITEM CI
       JOIN
@@ -87,11 +86,17 @@ app.get('/cart', async (req, res) => {
       JOIN
         PRODUTO_IMAGEM PI ON P.PRODUTO_ID = PI.PRODUTO_ID
       JOIN
-        PRODUTO_ESTOQUE PE ON P.PRODUTO_ID = PE.PRODUTO_ID
+        (SELECT
+          PRODUTO_ID,
+          MIN(IMAGEM_ORDEM) AS MIN_IMAGEM_ORDEM
+        FROM
+          PRODUTO_IMAGEM
+        GROUP BY
+          PRODUTO_ID) AS PI2 ON PI.PRODUTO_ID = PI2.PRODUTO_ID AND PI.IMAGEM_ORDEM = PI2.MIN_IMAGEM_ORDEM
       WHERE
-        CI.USUARIO_ID = ? AND PE.PRODUTO_QTD > 0
+        CI.USUARIO_ID = ?
       GROUP BY
-        CI.PRODUTO_ID, CI.ITEM_QTD, P.PRODUTO_NOME, P.PRODUTO_PRECO, PI.IMAGEM_URL, PE.PRODUTO_QTD
+        CI.PRODUTO_ID, CI.ITEM_QTD, P.PRODUTO_NOME, P.PRODUTO_PRECO, PI.IMAGEM_URL
     `, [userId]);
     res.json(rows);
   } catch (err) {
@@ -99,7 +104,6 @@ app.get('/cart', async (req, res) => {
     res.status(500).send('Database error: ' + err.message);
   }
 });
-
 
 app.put('/cart', async (req, res) => {
   const { userId, productId } = req.body;
@@ -154,34 +158,36 @@ app.post('/createOrder', async (req, res) => {
 
     // Inserir itens do pedido e atualizar estoque
     for (const produto of products) {
-      const { produtoId, quantidadeComprada, produtoPreco } = produto;
+      const { produtoId, quantidadeDisponivel, produtoPreco } = produto;
       
       // Verificar estoque
       const [estoqueRows] = await connection.query(`
         SELECT PRODUTO_QTD FROM PRODUTO_ESTOQUE WHERE PRODUTO_ID = ?
       `, [produtoId]);
       
-      if (estoqueRows[0].PRODUTO_QTD < quantidadeComprada) {
+      if (estoqueRows[0].PRODUTO_QTD < quantidadeDisponivel) {
         throw new Error(`Quantidade insuficiente no estoque para o produto ID: ${produtoId}`);
       }
-    
+
       // Inserir item do pedido
       await connection.query(`
         INSERT INTO PEDIDO_ITEM (PRODUTO_ID, PEDIDO_ID, ITEM_QTD, ITEM_PRECO)
         VALUES (?, ?, ?, ?)
-      `, [produtoId, pedidoId, quantidadeComprada, produtoPreco]);
-    
+      `, [produtoId, pedidoId, quantidadeDisponivel, produtoPreco]);
+
       // Atualizar estoque
       await connection.query(`
         UPDATE PRODUTO_ESTOQUE SET PRODUTO_QTD = PRODUTO_QTD - ?
         WHERE PRODUTO_ID = ?
-      `, [quantidadeComprada, produtoId]);
-    
+      `, [quantidadeDisponivel, produtoId]);
+
       // Limpar carrinho
       await connection.query(`
-        DELETE FROM CARRINHO_ITEM WHERE PRODUTO_ID = ? AND USUARIO_ID = ?
+        UPDATE CARRINHO_ITEM SET ITEM_QTD = 0
+        WHERE PRODUTO_ID = ? AND USUARIO_ID = ?
       `, [produtoId, userId]);
     }
+
     await connection.commit();
     connection.release();
 
@@ -191,7 +197,6 @@ app.post('/createOrder', async (req, res) => {
     res.status(500).send('Database error: ' + err.message);
   }
 });
-
 
 app.listen(3000, () => {
   console.log('Server running on port 3000');
