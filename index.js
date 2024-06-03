@@ -93,8 +93,10 @@ app.get('/cart', async (req, res) => {
           PRODUTO_IMAGEM
         GROUP BY
           PRODUTO_ID) AS PI2 ON PI.PRODUTO_ID = PI2.PRODUTO_ID AND PI.IMAGEM_ORDEM = PI2.MIN_IMAGEM_ORDEM
+      JOIN
+        PRODUTO_ESTOQUE PE ON P.PRODUTO_ID = PE.PRODUTO_ID
       WHERE
-        CI.USUARIO_ID = ?
+        CI.USUARIO_ID = ? AND PE.PRODUTO_QTD > 0
       GROUP BY
         CI.PRODUTO_ID, CI.ITEM_QTD, P.PRODUTO_NOME, P.PRODUTO_PRECO, PI.IMAGEM_URL
     `, [userId]);
@@ -158,7 +160,7 @@ app.post('/createOrder', async (req, res) => {
 
     // Inserir itens do pedido e atualizar estoque
     for (const produto of products) {
-      const { produtoId, quantidadeDisponivel, quantidadeComprada, produtoPreco } = produto;
+      const { produtoId, quantidadeComprada, produtoPreco } = produto;
       
       // Verificar estoque
       const [estoqueRows] = await connection.query(`
