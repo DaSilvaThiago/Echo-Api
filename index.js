@@ -187,10 +187,10 @@ app.post('/createOrder', async (req, res) => {
         WHERE PRODUTO_ID = ?
       `, [quantidade, produtoId]);
 
-      // Limpar carrinho
-      await connection.query(`
-        DELETE FROM CARRINHO_ITEM WHERE PRODUTO_ID = ? AND USUARIO_ID = ?
-      `, [produtoId, userId]);
+   // Limpar carrinho (definir quantidade como zero)
+   await connection.query(`
+   UPDATE CARRINHO_ITEM SET ITEM_QTD = 0 WHERE PRODUTO_ID = ? AND USUARIO_ID = ?
+ `, [produtoId, userId]);
     }
 
     await connection.commit();
