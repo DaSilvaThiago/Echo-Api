@@ -203,6 +203,34 @@ app.post('/createOrder', async (req, res) => {
   }
 });
 
+app.post('/register', async (req, res) => {
+  const { nome, email, senha, cpf } = req.body;
+
+  if (!nome || !email || !senha || !cpf) {
+    return res.status(400).send('Name, email, password, and CPF are required');
+  }
+
+  try {
+    const [existingUser] = await pool.query(`
+      SELECT * FROM USUARIO WHERE USUARIO_EMAIL = ?
+    `, [email]);
+
+    if (existingUser.length > 0) {
+      return res.status(400).send('User already exists with this email');
+    }
+
+    const [result] = await pool.query(`
+      INSERT INTO USUARIO (USUARIO_NOME, USUARIO_EMAIL, USUARIO_SENHA, USUARIO_CPF)
+      VALUES (?, ?, ?, ?)
+    `, [nome, email, senha, cpf]);
+
+    const userId = result.insertId;
+    res.json({ id: userId, message: 'User created successfully' });
+  } catch (err) {
+    console.error('Database error:', err.message);
+    res.status(500).send('Database error: ' + err.message);
+  }
+});
 
 app.listen(3000, () => {
   console.log('Server running on port 3000');
